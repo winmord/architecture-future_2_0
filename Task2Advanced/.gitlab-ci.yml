@@ -1,0 +1,281 @@
+---
+# =============================================================================
+# GitLab CI Pipeline for Terraform Infrastructure Deployment
+# =============================================================================
+# This pipeline manages infrastructure deployment across multiple environments
+# with security best practices and state management.
+# =============================================================================
+
+image: registry.gitlab.com/gitlab-org/terraform-images/releases/1.5:latest
+
+variables:
+  TF_ROOT: ${CI_PROJECT_DIR}
+  TF_IN_AUTOMATION: "true"
+
+# Cache Terraform plugins to speed up subsequent runs
+cache:
+  key: "${CI_COMMIT_REF_SLUG}"
+  paths:
+    - ${TF_ROOT}/.terraform
+
+stages:
+  - validate
+  - plan
+  - deploy
+  - destroy
+
+# =============================================================================
+# VALIDATE STAGE
+# =============================================================================
+validate:
+  stage: validate
+  script:
+    - cd envs/dev
+    - terraform init -backend=false
+    - terraform validate
+  only:
+    - merge_requests
+    - main
+    - develop
+  allow_failure: false
+
+validate-stage:
+  stage: validate
+  script:
+    - cd envs/stage
+    - terraform init -backend=false
+    - terraform validate
+  only:
+    - merge_requests
+    - main
+    - develop
+  allow_failure: false
+
+validate-prod:
+  stage: validate
+  script:
+    - cd envs/prod
+    - terraform init -backend=false
+    - terraform validate
+  only:
+    - merge_requests
+    - main
+  allow_failure: false
+
+# =============================================================================
+# PLAN STAGE
+# =============================================================================
+.terraform_plan_template: &terraform_plan
+  stage: plan
+  before_script:
+    - apk add --no-cache gettext
+    # Create terraform.tfvars from CI/CD variables (masked in logs)
+    - cd envs/$ENV
+    - |
+      cat > terraform.tfvars << EOF
+      name              = "${TF_VAR_name}"
+      cores             = ${TF_VAR_cores}
+      memory            = ${TF_VAR_memory}
+      core_fraction     = ${TF_VAR_core_fraction}
+      platform_id       = "${TF_VAR_platform_id}"
+      boot_image_family = "${TF_VAR_boot_image_family}"
+      boot_disk_size    = ${TF_VAR_boot_disk_size}
+      disk_type         = "${TF_VAR_disk_type}"
+      disk_size         = ${TF_VAR_disk_size}
+      zone              = "${TF_VAR_zone}"
+      subnet_id         = "${TF_VAR_subnet_id}"
+      ssh_key           = "${TF_VAR_ssh_key}"
+      yc_token          = "${TF_VAR_yc_token}"
+      cloud_id          = "${TF_VAR_cloud_id}"
+      folder_id         = "${TF_VAR_folder_id}"
+      access_key        = "${TF_VAR_access_key}"
+      secret_key        = "${TF_VAR_secret_key}"
+      tags = {
+        Environment = "${ENV}"
+        Project     = "Future20"
+        Team        = "DataPlatform"
+        Pipeline    = "GitLabCI"
+      }
+      EOF
+  script:
+    - cd envs/$ENV
+    - terraform init
+    - terraform plan -out=plan.tfplan -var-file="terraform.tfvars"
+  artifacts:
+    name: "${ENV}-plan"
+    paths:
+      - envs/${ENV}/plan.tfplan
+    expire_in: 7 days
+  only:
+    - merge_requests
+    - main
+    - develop
+  except:
+    - tags
+
+plan-dev:
+  <<: *terraform_plan
+  variables:
+    ENV: "dev"
+  environment:
+    name: dev
+    action: prepare
+
+plan-stage:
+  <<: *terraform_plan
+  variables:
+    ENV: "stage"
+  environment:
+    name: stage
+    action: prepare
+  only:
+    - merge_requests
+    - main
+
+plan-prod:
+  <<: *terraform_plan
+  variables:
+    ENV: "prod"
+  environment:
+    name: prod
+    action: prepare
+  only:
+    - main
+
+# =============================================================================
+# DEPLOY STAGE
+# =============================================================================
+.terraform_deploy_template: &terraform_deploy
+  stage: deploy
+  before_script:
+    - apk add --no-cache gettext
+    - cd envs/$ENV
+    - |
+      cat > terraform.tfvars << EOF
+      name              = "${TF_VAR_name}"
+      cores             = ${TF_VAR_cores}
+      memory            = ${TF_VAR_memory}
+      core_fraction     = ${TF_VAR_core_fraction}
+      platform_id       = "${TF_VAR_platform_id}"
+      boot_image_family = "${TF_VAR_boot_image_family}"
+      boot_disk_size    = ${TF_VAR_boot_disk_size}
+      disk_type         = "${TF_VAR_disk_type}"
+      disk_size         = ${TF_VAR_disk_size}
+      zone              = "${TF_VAR_zone}"
+      subnet_id         = "${TF_VAR_subnet_id}"
+      ssh_key           = "${TF_VAR_ssh_key}"
+      yc_token          = "${TF_VAR_yc_token}"
+      cloud_id          = "${TF_VAR_cloud_id}"
+      folder_id         = "${TF_VAR_folder_id}"
+      access_key        = "${TF_VAR_access_key}"
+      secret_key        = "${TF_VAR_secret_key}"
+      tags = {
+        Environment = "${ENV}"
+        Project     = "Future20"
+        Team        = "DataPlatform"
+        Pipeline    = "GitLabCI"
+      }
+      EOF
+  script:
+    - cd envs/$ENV
+    - terraform init
+    - terraform apply -auto-approve -var-file="terraform.tfvars"
+  environment:
+    name: $ENV
+    action: start
+    on_stop: stop_$ENV
+  only:
+    - main
+  when: manual
+  except:
+    - tags
+
+deploy-dev:
+  <<: *terraform_deploy
+  variables:
+    ENV: "dev"
+  environment:
+    name: dev
+    action: start
+    on_stop: stop_dev
+
+deploy-stage:
+  <<: *terraform_deploy
+  variables:
+    ENV: "stage"
+  environment:
+    name: stage
+    action: start
+    on_stop: stop_stage
+
+deploy-prod:
+  <<: *terraform_deploy
+  variables:
+    ENV: "prod"
+  environment:
+    name: prod
+    action: start
+    on_stop: stop_prod
+  only:
+    - main
+  when: manual
+
+# =============================================================================
+# DESTROY STAGE (for environment cleanup)
+# =============================================================================
+.terraform_destroy_template: &terraform_destroy
+  stage: destroy
+  before_script:
+    - apk add --no-cache gettext
+    - cd envs/$ENV
+    - |
+      cat > terraform.tfvars << EOF
+      name              = "${TF_VAR_name}"
+      cores             = ${TF_VAR_cores}
+      memory            = ${TF_VAR_memory}
+      core_fraction     = ${TF_VAR_core_fraction}
+      platform_id       = "${TF_VAR_platform_id}"
+      boot_image_family = "${TF_VAR_boot_image_family}"
+      boot_disk_size    = ${TF_VAR_boot_disk_size}
+      disk_type         = "${TF_VAR_disk_type}"
+      disk_size         = ${TF_VAR_disk_size}
+      zone              = "${TF_VAR_zone}"
+      subnet_id         = "${TF_VAR_subnet_id}"
+      ssh_key           = "${TF_VAR_ssh_key}"
+      yc_token          = "${TF_VAR_yc_token}"
+      cloud_id          = "${TF_VAR_cloud_id}"
+      folder_id         = "${TF_VAR_folder_id}"
+      access_key        = "${TF_VAR_access_key}"
+      secret_key        = "${TF_VAR_secret_key}"
+      tags = {
+        Environment = "${ENV}"
+        Project     = "Future20"
+        Team        = "DataPlatform"
+        Pipeline    = "GitLabCI"
+      }
+      EOF
+  script:
+    - cd envs/$ENV
+    - terraform init
+    - terraform destroy -auto-approve -var-file="terraform.tfvars"
+  environment:
+    name: $ENV
+    action: stop
+  only:
+    - main
+  when: manual
+
+stop_dev:
+  <<: *terraform_destroy
+  variables:
+    ENV: "dev"
+
+stop_stage:
+  <<: *terraform_destroy
+  variables:
+    ENV: "stage"
+
+stop_prod:
+  <<: *terraform_destroy
+  variables:
+    ENV: "prod"

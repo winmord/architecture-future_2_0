@@ -1,0 +1,19 @@
+name              = "prod-vm-01"
+cores             = 8
+memory            = 16
+core_fraction     = 100
+platform_id       = "standard-v3"
+boot_image_family = "ubuntu-2204-lts"
+boot_disk_size    = 50
+disk_type         = "network-ssd"
+disk_size         = 200
+zone              = "ru-central1-c"
+subnet_id         = "subnet-prod-13579"
+
+tags = {
+  Environment = "prod"
+  Project     = "Future20"
+  Team        = "DataPlatform"
+  Critical    = "true"
+  Backup      = "daily"
+}
