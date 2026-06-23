@@ -1,0 +1,86 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Bounded Contexts - Future 2.0 Platform
+
+System_Boundary(platform, "Future 2.0 Platform") {
+
+    System_Boundary(medical_context, "Medical Context") {
+        Container(patient_management, "Patient Management", "Управление профилями пациентов")
+        Container(medical_records, "Medical Records", "Медицинские карты и истории болезни")
+        Container(consultations, "Consultations", "Консультации и приёмы")
+        Container(diagnostics, "Diagnostics", "Диагностические исследования")
+        Container(prescriptions, "Prescriptions", "Назначения и рецепты")
+    }
+
+    System_Boundary(fintech_context, "Fintech Context") {
+        Container(account_management, "Account Management", "Управление счетами")
+        Container(credit_management, "Credit Management", "Управление кредитами")
+        Container(payment_processing, "Payment Processing", "Обработка платежей")
+        Container(transaction_management, "Transaction Management", "Управление транзакциями")
+        Container(risk_assessment, "Risk Assessment", "Оценка рисков")
+    }
+
+    System_Boundary(ai_context, "AI Context") {
+        Container(ai_diagnostics, "AI Diagnostics", "ИИ-диагностика")
+        Container(ai_prediction, "AI Prediction", "ИИ-прогнозирование")
+        Container(ai_recommendation, "AI Recommendation", "ИИ-рекомендации лечения")
+    }
+
+    System_Boundary(analytics_context, "Analytics Context") {
+        Container(reporting, "Reporting", "Формирование отчётов")
+        Container(dashboards, "Dashboards", "Дашборды и визуализация")
+        Container(self_service, "Self-Service Analytics", "Самообслуживание")
+    }
+
+    System_Boundary(inventory_context, "Inventory Context") {
+        Container(equipment_management, "Equipment Management", "Управление оборудованием")
+        Container(pharmacy_management, "Pharmacy Management", "Управление лекарствами")
+        Container(warehouse_management, "Warehouse Management", "Управление складом")
+    }
+
+    System_Boundary(integration_context, "Integration Context") {
+        Container(anti_corruption, "Anti-Corruption Layer", "Интеграция с легаси")
+        Container(event_gateway, "Event Gateway", "Шлюз внешних событий")
+    }
+}
+
+System_Boundary(event_bus, "Event Bus (Kafka)") {
+    Container(events, "Domain Events", "Потоки событий между контекстами")
+}
+
+' Medical Context internal relationships
+Rel(patient_management, medical_records, "Создаёт")
+Rel(medical_records, consultations, "Используется в")
+Rel(consultations, diagnostics, "Назначает")
+Rel(consultations, prescriptions, "Выписывает")
+
+' Fintech Context internal relationships
+Rel(account_management, payment_processing, "Используется для")
+Rel(account_management, credit_management, "Связан с")
+Rel(payment_processing, transaction_management, "Создаёт")
+Rel(credit_management, risk_assessment, "Проходит")
+
+' Cross-context relationships
+Rel(patient_management, event_bus, "Публикует", "PatientRegistered")
+Rel(medical_records, event_bus, "Публикует", "DiagnosisAdded")
+Rel(prescriptions, event_bus, "Публикует", "PrescriptionIssued")
+Rel(consultations, event_bus, "Публикует", "ConsultationCompleted")
+
+Rel(account_management, event_bus, "Публикует", "AccountOpened")
+Rel(payment_processing, event_bus, "Публикует", "PaymentProcessed")
+Rel(credit_management, event_bus, "Публикует", "CreditIssued")
+Rel(risk_assessment, event_bus, "Публикует", "RiskAssessed")
+
+Rel(ai_diagnostics, event_bus, "Публикует", "DiagnosisPredicted")
+Rel(ai_recommendation, event_bus, "Публикует", "TreatmentRecommended")
+
+Rel(event_bus, analytics_context, "Подписывается на все события")
+Rel(event_bus, inventory_context, "Подписывается на медицинские события")
+Rel(event_bus, fintech_context, "Подписывается на медицинские события")
+Rel(event_bus, medical_context, "Подписывается на финансовые события")
+
+Rel(integration_context, anti_corruption, "Интегрируется с легаси")
+Rel(integration_context, event_gateway, "Интегрируется с внешними системами")
+
+@enduml

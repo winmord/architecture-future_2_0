@@ -1,0 +1,87 @@
+@startuml
+title Event Storming - Domain Events Flow
+
+rectangle "Medical Domain" {
+    (PatientRegistered) as PR
+    (DiagnosisAdded) as DA
+    (PrescriptionIssued) as PI
+    (ConsultationCompleted) as CC
+    (DiagnosticStudyCompleted) as DSC
+}
+
+rectangle "AI Domain" {
+    (DiagnosisPredicted) as DP
+    (TreatmentRecommended) as TR
+    (AnomalyDetected) as AD
+}
+
+rectangle "Fintech Domain" {
+    (AccountOpened) as AO
+    (PaymentProcessed) as PP
+    (CreditIssued) as CI
+    (TransactionCompleted) as TC
+    (RiskAssessed) as RA
+}
+
+rectangle "Inventory Domain" {
+    (StockUpdated) as SU
+    (StockDepleted) as SD
+    (StockReserved) as SR
+}
+
+rectangle "Analytics Domain" {
+    (ReportGenerated) as RG
+    (DashboardUpdated) as DU
+}
+
+rectangle "Integration Domain" {
+    (LegacyDataSynced) as LDS
+    (ExternalEventReceived) as EER
+}
+
+' Medical -> AI
+DSC --> DP : triggers
+DA --> DP : triggers for verification
+
+' AI -> Medical
+DP --> DA : confirms
+TR --> CC : suggests treatment
+AD --> DA : alerts doctor
+
+' Medical -> Fintech
+CC --> PP : triggers payment
+PI --> PP : triggers pharmacy payment
+PR --> AO : triggers account creation
+
+' Fintech -> Medical
+PP --> CC : confirms payment
+AO --> PR : confirms account
+
+' Medical -> Inventory
+PI --> SR : reserves medication
+DSC --> SU : updates equipment usage
+
+' Inventory -> Medical
+SD --> PI : alerts alternative medication
+SR --> PI : confirms reservation
+
+' All domains -> Analytics
+PR --> RG
+DA --> RG
+PI --> RG
+CC --> RG
+PP --> RG
+AO --> RG
+CI --> RG
+SU --> RG
+DP --> RG
+DU --> RG
+
+' Integration events
+LDS --> PR : syncs legacy patients
+LDS --> DA : syncs legacy diagnoses
+LDS --> CI : syncs legacy credits
+EER --> PI : external pharma prescription
+EER --> DP : external AI diagnosis
+
+@enduml
