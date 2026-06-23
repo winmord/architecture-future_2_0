@@ -1,0 +1,77 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Container and Component Diagram - Future 2.0 Platform
+
+Person(patient, "Пациент", "Получает медицинские и финансовые услуги")
+Person(doctor, "Врач", "Работает с медицинскими данными")
+Person(analyst, "Бизнес-аналитик", "Строит отчёты и дашборды")
+
+System_Boundary(platform, "Future 2.0 Platform") {
+
+    Container(api_gateway, "API Gateway", "Kong", "Единая точка входа. Маршрутизация, аутентификация, rate limiting")
+
+    Container(ui_portal, "Self-Service Portal UI", "React", "Портал самообслуживания. Конструктор отчётов, дашборды")
+
+    Container(event_bus, "Event Bus", "Apache Kafka", "Центральная событийная шина. Асинхронный обмен событиями между доменами")
+
+    Container(domain_medical, "Medical Domain", "Java / Spring Boot", "Медицинский домен. Управление картами, историями болезней, назначениями")
+
+    Container(domain_fintech, "Fintech Domain", "Go", "Финтех-домен. Управление счетами, кредитами, платежами")
+
+    Container(domain_ai, "AI Domain", "Python / FastAPI", "ИИ-домен. Обработка медицинских данных, диагностика")
+
+    Container(domain_analytics, "Analytics Domain", "Python / Dask", "Аналитический домен. Построение отчётов, витрин данных")
+
+    Container(portal_self_service, "Self-Service Analytics", "Apache Superset", "Портал самообслуживания. Конструктор отчётов, визуализация")
+
+    Container(data_lake, "Data Lake", "S3 / Object Storage", "Хранилище сырых данных. События, логи, снимки, транзакции")
+
+    Container(data_warehouse, "Data Warehouse", "ClickHouse", "Хранилище агрегированных данных для быстрой аналитики")
+
+    Container(schema_registry, "Schema Registry", "Confluent Schema Registry", "Каталог схем событий. Управление версиями")
+
+    Container(dlq_manager, "DLQ Manager", "Go", "Менеджер очередей недоставленных сообщений")
+
+    Container(anticorruption_layer, "Anti-Corruption Layer", "Java / Camel", "Антикоррупционный слой для интеграции с легаси")
+}
+
+System_Ext(legacy_dwh, "Legacy DWH", "MS SQL Server 2008, PowerBuilder", "Устаревшее хранилище")
+System_Ext(legacy_esb, "Legacy ESB", "Apache Camel", "Устаревшая сервисная шина")
+System_Ext(external_ai, "External AI Services", "Внешние ИИ-сервисы", "Сторонние сервисы диагностики")
+
+Rel(patient, api_gateway, "Использует", "HTTPS")
+Rel(doctor, api_gateway, "Использует", "HTTPS")
+Rel(analyst, api_gateway, "Использует", "HTTPS")
+
+Rel(api_gateway, ui_portal, "Маршрутизирует")
+Rel(api_gateway, portal_self_service, "Маршрутизирует")
+
+Rel(ui_portal, portal_self_service, "Запрашивает данные")
+
+Rel(portal_self_service, domain_analytics, "Запрашивает отчёты")
+Rel(portal_self_service, data_warehouse, "Читает данные")
+
+Rel(domain_medical, event_bus, "Публикует события", "Kafka")
+Rel(domain_fintech, event_bus, "Публикует события", "Kafka")
+Rel(domain_ai, event_bus, "Публикует события", "Kafka")
+Rel(domain_analytics, event_bus, "Подписывается на события", "Kafka")
+
+Rel(domain_medical, data_lake, "Сохраняет сырые данные")
+Rel(domain_fintech, data_lake, "Сохраняет сырые данные")
+Rel(domain_ai, data_lake, "Сохраняет сырые данные")
+
+Rel(data_lake, data_warehouse, "Трансформирует и загружает", "ETL")
+Rel(domain_analytics, data_warehouse, "Анализирует данные")
+
+Rel(domain_ai, external_ai, "Интегрируется", "API")
+
+Rel(domain_medical, anticorruption_layer, "Интегрируется через ACL")
+Rel(domain_fintech, anticorruption_layer, "Интегрируется через ACL")
+Rel(anticorruption_layer, legacy_dwh, "Читает/пишет данные")
+Rel(anticorruption_layer, legacy_esb, "Интегрируется")
+
+Rel(event_bus, dlq_manager, "Направляет недоставленные сообщения")
+Rel(domain_analytics, schema_registry, "Получает схемы")
+
+@enduml
