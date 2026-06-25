@@ -1,0 +1,17 @@
+name              = "dev-vm-01"
+cores             = 2
+memory            = 4
+core_fraction     = 50
+platform_id       = "standard-v2"
+boot_image_family = "ubuntu-2204-lts"
+boot_disk_size    = 30
+disk_type         = "network-hdd"
+disk_size         = 50
+zone              = "ru-central1-a"
+subnet_id         = "subnet-dev-12345"
+
+tags = {
+  Environment = "dev"
+  Project     = "Future20"
+  Team        = "DataPlatform"
+}

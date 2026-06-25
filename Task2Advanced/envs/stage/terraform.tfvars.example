@@ -1,0 +1,17 @@
+name              = "stage-vm-01"
+cores             = 4
+memory            = 8
+core_fraction     = 100
+platform_id       = "standard-v3"
+boot_image_family = "ubuntu-2204-lts"
+boot_disk_size    = 40
+disk_type         = "network-ssd"
+disk_size         = 100
+zone              = "ru-central1-b"
+subnet_id         = "subnet-stage-67890"
+
+tags = {
+  Environment = "stage"
+  Project     = "Future20"
+  Team        = "DataPlatform"
+}

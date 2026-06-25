@@ -1,0 +1,112 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Container and Component Diagram - Future 2.0 Platform
+
+Person(patient, "Пациент", "Получает медицинские и финансовые услуги")
+Person(doctor, "Врач", "Работает с медицинскими данными")
+Person(analyst, "Бизнес-аналитик", "Строит отчёты и дашборды")
+
+System_Boundary(platform, "Future 2.0 Platform") {
+
+    Container(api_gateway, "API Gateway", "Kong", "Единая точка входа. Маршрутизация, аутентификация, rate limiting")
+
+    Container(ui_portal, "Self-Service Portal UI", "React", "Портал самообслуживания. Конструктор отчётов, дашборды")
+
+    Container(event_bus, "Event Bus", "Apache Kafka", "Центральная событийная шина. Асинхронный обмен событиями между доменами. Транспорт событий между доменами. Не содержит бизнес-логики")
+
+    Container(domain_medical, "Medical Domain", "Java / Spring Boot", "Медицинский домен. Управление картами, историями болезней, назначениями")
+
+    Container(domain_fintech, "Fintech Domain", "Go", "Финтех-домен. Управление счетами, кредитами, платежами")
+
+    Container(domain_ai, "AI Domain", "Python / FastAPI", "ИИ-домен. Обработка медицинских данных, диагностика")
+
+    Container(domain_analytics, "Analytics Domain", "Python / Dask", "Аналитический домен. Построение отчётов, витрин данных")
+
+    Container(portal_self_service, "Self-Service Analytics", "Apache Superset", "Портал самообслуживания. Конструктор отчётов, визуализация")
+
+    Container(data_lake, "Data Lake", "S3 / Object Storage", "Хранилище сырых данных. События, логи, снимки, транзакции")
+
+    Container(data_warehouse, "Data Warehouse", "ClickHouse", "Хранилище агрегированных данных для быстрой аналитики")
+
+    Container(schema_registry, "Schema Registry", "Confluent Schema Registry", "Каталог схем событий. Управление версиями")
+
+    Container(dlq_manager, "DLQ Manager", "Go", "Менеджер очередей недоставленных сообщений")
+
+    Container(legacy_adapter, "Legacy Adapter", "Java", "Адаптация Legacy DWH и Legacy ESB")
+
+    Container(stream_processing, "Stream Processing Layer", "Kafka Streams / Flink", "Потоковая обработка событий. Трансформации, агрегации, enrichment")
+
+    Container(validation_service, "Validation Service", "Java", "ФЛК, бизнес-валидации, проверка схем и обязательных полей")
+
+    Container(workflow_orchestrator, "Workflow Orchestrator", "Temporal / Camunda", "Оркестрация бизнес-процессов и Saga")
+
+    Container(reliability_layer, "Reliability Layer", "Kafka Consumers", "Retry, Idempotency, Circuit Breaker, DLQ")
+
+    Container(stream_processing, "Stream Processing Layer", "Kafka Streams / Flink", "Трансформация, маршрутизация и обогащение событий")
+}
+
+System_Ext(legacy_dwh, "Legacy DWH", "MS SQL Server 2008, PowerBuilder", "Устаревшее хранилище")
+System_Ext(legacy_esb, "Legacy ESB", "Apache Camel", "Устаревшая сервисная шина")
+System_Ext(external_ai, "External AI Services", "Внешние ИИ-сервисы", "Сторонние сервисы диагностики")
+
+Rel(patient, api_gateway, "Использует", "HTTPS")
+Rel(doctor, api_gateway, "Использует", "HTTPS")
+Rel(analyst, api_gateway, "Использует", "HTTPS")
+
+Rel(api_gateway, ui_portal, "Маршрутизирует")
+Rel(api_gateway, portal_self_service, "Маршрутизирует")
+
+Rel(ui_portal, portal_self_service, "Запрашивает данные")
+
+Rel(portal_self_service, domain_analytics, "Запрашивает отчёты")
+Rel(portal_self_service, data_warehouse, "Читает данные")
+
+Rel(domain_medical, event_bus, "Публикует события", "Kafka")
+Rel(domain_fintech, event_bus, "Публикует события", "Kafka")
+Rel(domain_ai, event_bus, "Публикует события", "Kafka")
+Rel(domain_analytics, event_bus, "Подписывается на события", "Kafka")
+
+Rel(domain_medical, data_lake, "Сохраняет сырые данные")
+Rel(domain_fintech, data_lake, "Сохраняет сырые данные")
+Rel(domain_ai, data_lake, "Сохраняет сырые данные")
+
+Rel(data_lake, data_warehouse, "Трансформирует и загружает", "ETL")
+Rel(domain_analytics, data_warehouse, "Анализирует данные")
+
+Rel(domain_ai, external_ai, "Интегрируется", "API")
+
+Rel(event_bus, validation_service, "Передает события")
+
+Rel(validation_service, stream_processing, "Передает валидированные события")
+
+Rel(stream_processing, workflow_orchestrator, "Запускает бизнес-процессы")
+
+Rel(workflow_orchestrator, domain_medical, "Оркестрирует")
+
+Rel(workflow_orchestrator, domain_fintech, "Оркестрирует")
+
+Rel(workflow_orchestrator, domain_ai, "Оркестрирует")
+
+Rel(event_bus, reliability_layer, "Обрабатывает ошибки и повторы")
+
+Rel(reliability_layer, dlq_manager, "Направляет в DLQ")
+
+Rel(legacy_adapter, legacy_dwh, "CDC / Read")
+
+Rel(legacy_adapter, legacy_esb, "Bridge")
+
+Rel(legacy_adapter, event_bus, "Публикует доменные события")
+
+Rel(event_bus, stream_processing, "Передает события")
+
+Rel(stream_processing, domain_medical, "Маршрутизирует")
+
+Rel(stream_processing, domain_fintech, "Маршрутизирует")
+
+Rel(stream_processing, domain_ai, "Маршрутизирует")
+
+Rel(event_bus, dlq_manager, "Направляет недоставленные сообщения")
+Rel(domain_analytics, schema_registry, "Получает схемы")
+
+@enduml
